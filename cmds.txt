@@ -1,3 +1,13 @@
 sbatch llm-ft.slurm
 squeue --user=24m0797
-scp -P 4422 -v gpt2.py women_in_tech.txt llm-ft.slurm 24m0797@paramrudra.iitb.ac.in:/home/IITB/cfilt/24m0797/llm-ft
+scp -P 4422 gpt2.py women_in_tech.txt requirements.txt llm-ft.slurm 24m0797@paramrudra.iitb.ac.in:/home/IITB/cfilt/24m0797/llm-ft
+scp -P 4422 -r gpt2_local 24m0797@paramrudra.iitb.ac.in:/home/IITB/cfilt/24m0797/llm-ft
+source /home/apps/spack/share/spack/setup-env.sh
+source ~/.bashrc
+module load mldl_modules/miniconda
+conda create --name myenv python=3.8
+conda init
+conda activate myenv
+conda deactivate
+conda install --file requirements.txt
+conda remove --name myenv --all

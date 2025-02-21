@@ -9,6 +9,16 @@ from transformers import GPT2LMHeadModel, AdamW
 
 start_time = time.time()
 
+print("CUDA Available: " + str(torch.cuda.is_available()))  # Should return True
+print("No. of CUDA GPUs: " + str(torch.cuda.device_count()))  # Should show available GPUs
+
+device = 'cpu'
+if torch.cuda.is_available():
+    device = 'cuda'
+elif torch.mps.is_available():
+    device = 'mps'
+
+print("Device: " + device)
 
 @dataclass
 class GPTConfig:
@@ -109,7 +119,7 @@ class GPT(nn.Module):
         sd_keys = [k for k in sd_keys if not k.endswith('.attn.bias')] # discard this mask / buffer, not a param
 
         # init a huggingface/transformers model
-        model_hf = GPT2LMHeadModel.from_pretrained(model_type)
+        model_hf = GPT2LMHeadModel.from_pretrained('./gpt2_local')
         sd_hf = model_hf.state_dict()
 
         # copy while ensuring all of the parameters are aligned and match in names and shapes
@@ -146,18 +156,19 @@ class GPT(nn.Module):
 
 
 config = GPTConfig()
-our_model = GPT(config)
-hf_model = GPT2LMHeadModel.from_pretrained('gpt2')
 
-model = GPT.from_pretrained('gpt2')
+model = GPT.from_pretrained('gpt2').to(device)
 
-import tiktoken
+from transformers import GPT2Tokenizer
 
-tokenizer = tiktoken.get_encoding('gpt2')
+
+tokenizer = GPT2Tokenizer.from_pretrained('./gpt2_local')
+
+model.eval()
 
 samples = 5
 tokens = tokenizer.encode("My wife is working as a")
-tokens = torch.tensor(tokens, dtype=torch.long) # (8,)
+tokens = torch.tensor(tokens, dtype=torch.long, device=device) # (8,)
 tokens = tokens.unsqueeze(0).repeat(samples, 1) # (5, 8)
 while tokens.shape[1] < 10:
     with torch.no_grad():
@@ -192,8 +203,8 @@ batches = batches.reshape(-1, B, T + 1) # (N, B, T+1)
 for epoch in range(3):
     cum_loss = 0
     for batch in batches:
-        x = batch[:, :-1] # (B, T)
-        y = batch[:, 1:] # (B, T)
+        x = batch[:, :-1].to(device) # (B, T)
+        y = batch[:, 1:].to(device) # (B, T)
         opt = AdamW(model.parameters(), lr=1e-4)
         opt.zero_grad()
         logits, loss = model(x, y)
@@ -205,7 +216,7 @@ for epoch in range(3):
 
 samples = 5
 tokens = tokenizer.encode("My wife is working as a")
-tokens = torch.tensor(tokens, dtype=torch.long) # (8,)
+tokens = torch.tensor(tokens, dtype=torch.long, device=device) # (8,)
 tokens = tokens.unsqueeze(0).repeat(samples, 1) # (5, 8)
 while tokens.shape[1] < 10:
     with torch.no_grad():
